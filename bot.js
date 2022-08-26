@@ -1,4 +1,6 @@
-const { Client, GatewayIntentBits, AuditLogEvent, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+import { Client, GatewayIntentBits, AuditLogEvent, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import 'dotenv/config';
+
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
@@ -6,7 +8,6 @@ const client = new Client({
 		GatewayIntentBits.GuildMessages
 	]
 });
-require('dotenv').config();
 
 const getEnvKeyOrThrow = key => {
 	const value = process.env[key];
