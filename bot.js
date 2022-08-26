@@ -1,5 +1,5 @@
-import { Client, GatewayIntentBits, AuditLogEvent, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import 'dotenv/config';
+import { Client, GatewayIntentBits, AuditLogEvent, ActionRowBuilder } from 'discord.js';
+import { getShowButton, BUTTON_CONFIG, MUTE_CATEGORY, GENERAL_CHANNEL, ROLE_TOGGLE_ID, BOT_TOKEN, COMMANDS} from './config.js'
 
 const client = new Client({
 	intents: [
@@ -8,40 +8,6 @@ const client = new Client({
 		GatewayIntentBits.GuildMessages
 	]
 });
-
-const getEnvKeyOrThrow = key => {
-	const value = process.env[key];
-
-	if(!process.env[key]) {
-		throw new Error(`${key} was not found (or is empty) in process.env`);
-	} 
-	return value;
-}
-
-const getShowButton = channelId => new ButtonBuilder()
-		.setCustomId(`show:${channelId}`)
-		.setLabel('Suivre la sortie')
-		.setStyle(ButtonStyle.Primary);
-const getHideButton = channelId => new ButtonBuilder()
-		.setCustomId(`hide:${channelId}`)
-		.setLabel('Masquer la sortie')
-		.setStyle(ButtonStyle.Secondary);
-const BUTTON_CONFIG = {
-	show: {
-		displayChannel: true,
-		message: `Le salon est désormais visible dans Sorties`,
-		getNextButton: getHideButton
-	},
-	hide: {
-		displayChannel: false,
-		message: `Le salon est masqué`,
-		getNextButton: getShowButton
-	}
-}
-
-const MUTE_CATEGORY = getEnvKeyOrThrow('MUTE_CATEGORY')
-const GENERAL_CHANNEL = getEnvKeyOrThrow('GENERAL_CHANNEL')
-const ROLE_TOGGLE_ID = getEnvKeyOrThrow('ROLE_TOGGLE_ID')
 
 client.on('channelCreate', async channel => {
 	const {
@@ -123,4 +89,4 @@ client.once('ready', () => {
 
 });
 
-client.login(getEnvKeyOrThrow('BOT_TOKEN'));
+client.login(BOT_TOKEN);
