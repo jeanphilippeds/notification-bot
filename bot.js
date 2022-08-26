@@ -19,11 +19,6 @@ client.on('channelCreate', async channel => {
 	if (!guild) return false; // This is a DM channel.
 	if (MUTE_CATEGORY !== channelCategoryId) return;
 
-	//HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
-	channel.permissionOverwrites.create(channel.guild.roles.cache.get(ROLE_TOGGLE_ID), {
-		ViewChannel: false
-	});
-
 	//A BIT HACKY BUT ONLY WAY - FOR NOW - TO FIND CHANNEL AUTHOR
 	const auditLogs = await guild.fetchAuditLogs({limit: 1, type: AuditLogEvent.ChannelCreate});
 	const channelAuthorEntry = auditLogs.entries.first()
@@ -38,6 +33,11 @@ client.on('channelCreate', async channel => {
 			ViewChannel: true
 		});
 	}
+
+	//HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
+	channel.permissionOverwrites.create(channel.guild.roles.cache.get(ROLE_TOGGLE_ID), {
+		ViewChannel: false
+	});
 
 	//SEND BUTTONS TO OPT-IN/OPT-OUT
 	const buttonsRow = new ActionRowBuilder().addComponents(getShowButton(channelId));
