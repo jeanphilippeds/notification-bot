@@ -1,2 +1,1 @@
 - Configurer pour le serveur du Duck
-- Déployer gile bot (heroku?)
