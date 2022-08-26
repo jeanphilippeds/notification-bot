@@ -1,5 +1,2 @@
-- Permettre la gestion du rôle
-  - Afficher le message pour ces gens seulement
-  - Activer Oui/Non la feature
 - Configurer pour le serveur du Duck
-- Déployer le bot (heroku?)
+- Déployer gile bot (heroku?)

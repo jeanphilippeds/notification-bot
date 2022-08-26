@@ -71,7 +71,7 @@ client.once('ready', () => {
 
 			//NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
 			if (!hasUserOptIn) {
-				await interaction.reply({ content: `Pense à activer l'option pour afficher/masquer les salons`, ephemeral: true });
+				await interaction.reply({ content: `Pense à activer l'option pour afficher/masquer les salons (/activer... ou /desactiver...)`, ephemeral: true });
 				return;
 			}
 
@@ -87,6 +87,31 @@ client.once('ready', () => {
 			await interaction.reply({ content: buttonConfig.message, components: [buttonsRow], ephemeral: true })
 		});
 
+	client.on('interactionCreate', async interaction => {
+		if (!interaction.isChatInputCommand()) return;
+	
+		const { commandName, user: {id: userId} } = interaction;
+		const user = await interaction.guild.members.fetch(userId);
+		const role = interaction.guild.roles.cache.find(({id}) => id === ROLE_TOGGLE_ID);
+
+		switch (commandName) {
+			case COMMANDS.activate.commandName:
+				user.roles.add(role);
+				await interaction.reply({
+					content: 'Suivi de sorties activé. Tu peux désormais recevoir des notifications pour les sorties que tu veux suivre uniquement.',
+					ephemeral: true
+				});g
+				break;
+			case COMMANDS.deactivate.commandName:
+				user.roles.remove(role);
+				await interaction.reply({
+					content: 'Suivi de sorties désactivé. Tu verras toutes les sorties dans la section Sorties',
+					ephemeral: true
+				});
+				break;
+			default:
+		}
+	});
 });
 
 client.login(BOT_TOKEN);
