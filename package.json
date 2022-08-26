@@ -1,0 +1,16 @@
+{
+  "name": "notification-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/rest": "^1.0.1",
+    "discord.js": "^14.1.1",
+    "dotenv": "^16.0.1"
+  }
+}
