@@ -12,10 +12,10 @@ const getButtonsRowFromMap = map => Object.entries(map)
 		return new ActionRowBuilder().addComponents(new ButtonBuilder()
 			.setCustomId(buttonKey)
 			.setLabel(isAvailable ? '✅ Place disponible' : `🐥 ${passengerName}`)
-			.setDisabled(!isAvailable)
 			.setStyle(ButtonStyle.Secondary),
 		);
 	});
+
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
@@ -100,13 +100,23 @@ export const handleCarpoolButton = async (interaction) => {
 		return;
 	}
 
-	const oldSeatInfo = CARPOOL_MEMORY_MAP[cacheKey][seatIndex];
+	const { isAvailable, passengerMemberId, buttonKey } = CARPOOL_MEMORY_MAP[cacheKey][seatIndex];
 
-	CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
-		...oldSeatInfo,
-		isAvailable: !oldSeatInfo.isAvailable,
-		passengerName: oldSeatInfo.isAvailable ? getMemberName(member) : '',
-	};
+	if (isAvailable) {
+		CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
+			buttonKey,
+			isAvailable: false,
+			passengerName: getMemberName(member),
+			passengerMemberId: member.id,
+		};
+	}
+
+	if (!isAvailable && passengerMemberId === member.id) {
+		CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
+			buttonKey,
+			isAvailable: true,
+		};
+	}
 
 	await interaction.update({
 		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[cacheKey]),

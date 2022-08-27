@@ -1,6 +1,5 @@
 # COVOIT
 
-- Ajouter 1 bouton Libérer une place
 - Ajouter 1 bouton Supprimer message
 - Deploy (remove 000 from BOT_TOKEN et update CHANNEL_TOGGLE_ROLE_ID)
 
