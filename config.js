@@ -35,6 +35,7 @@ export const BUTTON_CONFIG = {
 export const COMMANDS = {
 	activate: { commandName: 'activer-suivi-sorties', helpText: 'Permet de suivre uniquement les sorties que tu as choisies' },
 	deactivate: { commandName: 'desactiver-suivi-sorties', helpText: 'Affiche toutes les sorties proposées' },
+	carpool: { commandName: 'covoit', helpText: 'Permet de proposer une ou plusieurs places en voiture', numberOfSeatsOption: 'places_disponibles' },
 };
 
 export const MUTE_CATEGORY = getEnvKeyOrThrow('MUTE_CATEGORY');

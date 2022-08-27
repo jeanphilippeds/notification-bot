@@ -1,5 +1,6 @@
-import { ActionRowBuilder, AuditLogEvent, Client, GatewayIntentBits } from 'discord.js';
+import { ActionRowBuilder, AuditLogEvent, ButtonBuilder, ButtonStyle, Client, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { BOT_TOKEN, BUTTON_CONFIG, COMMANDS, GENERAL_CHANNEL, getShowButton, MUTE_CATEGORY, ROLE_TOGGLE_ID } from './config.js';
+import { getMemberName } from './helper.js';
 
 const client = new Client({
 	intents: [
@@ -8,6 +9,11 @@ const client = new Client({
 		GatewayIntentBits.GuildMessages,
 	],
 });
+
+const CARPOOL_MEMORY_MAP = {};
+const FROM_INPUT_MODAL_ID = 'carpool-from-input';
+const TIME_INPUT_MODAL_ID = 'carpool-time-input';
+const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
 client.on('channelCreate', async channel => {
 	const {
@@ -24,7 +30,6 @@ client.on('channelCreate', async channel => {
 	const channelAuthorEntry = auditLogs.entries.first();
 	if (!channelAuthorEntry) return console.error('No entry found for channel author.');
 	const author = await guild.members.fetch(channelAuthorEntry.executor.id);
-	const authorName = author.nickname ?? author.user.username ?? 'Quelqu\'un';
 	const hasUserOptIn = !!author.roles.cache.get(ROLE_TOGGLE_ID);
 
 	// ALLOW AUTHOR TO VIEW ITS CHANNEL
@@ -42,7 +47,7 @@ client.on('channelCreate', async channel => {
 	// SEND BUTTONS TO OPT-IN/OPT-OUT
 	const buttonsRow = new ActionRowBuilder().addComponents(getShowButton(channelId));
 	client.channels.cache.get(GENERAL_CHANNEL).send({
-		content: `${authorName} vient de proposer la sortie: #${channelName}.`,
+		content: `${getMemberName(author)} vient de proposer la sortie: #${channelName}.`,
 		components: [buttonsRow],
 	});
 });
@@ -50,9 +55,35 @@ client.on('channelCreate', async channel => {
 client.on('interactionCreate', async interaction => {
 	if (!interaction.isChatInputCommand()) return;
 
-	const { commandName, user: { id: userId } } = interaction;
+	const { commandName, id: interactionId, user: { id: userId } } = interaction;
 	const user = await interaction.guild.members.fetch(userId);
 	const role = interaction.guild.roles.cache.find(({ id }) => id === ROLE_TOGGLE_ID);
+	const cacheKey = `carpool-${interactionId}`;
+
+	const modal = new ModalBuilder()
+		.setCustomId(cacheKey)
+		.setTitle('Nouvelle voiture');
+
+	const fromInput = new TextInputBuilder()
+		.setCustomId(FROM_INPUT_MODAL_ID)
+		.setLabel('Point de départ')
+		.setStyle(TextInputStyle.Short);
+
+	const timeInput = new TextInputBuilder()
+		.setCustomId(TIME_INPUT_MODAL_ID)
+		.setLabel('Heure de départ')
+		.setStyle(TextInputStyle.Short);
+
+	const textInput = new TextInputBuilder()
+		.setCustomId(TEXT_INPUT_MODAL_ID)
+		.setLabel('Commentaire')
+		.setRequired(false)
+		.setStyle(TextInputStyle.Short);
+
+	const firstActionRow = new ActionRowBuilder().addComponents(fromInput);
+	const secondActionRow = new ActionRowBuilder().addComponents(timeInput);
+	const thirdActionRow = new ActionRowBuilder().addComponents(textInput);
+	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
 
 	switch (commandName) {
 	case COMMANDS.activate.commandName:
@@ -69,8 +100,40 @@ client.on('interactionCreate', async interaction => {
 			ephemeral: true,
 		});
 		break;
-	default:
+	case COMMANDS.carpool.commandName:
+		CARPOOL_MEMORY_MAP[cacheKey] = { numberOfSeats: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption) };
+		await interaction.showModal(modal);
+		break;
 	}
+});
+
+client.on('interactionCreate', async interaction => {
+	const { customId, user: { id: userId } } = interaction;
+
+	if (!interaction.isModalSubmit()) return;
+
+	const inMemoryCarpool = CARPOOL_MEMORY_MAP[customId];
+	if (!inMemoryCarpool) {
+		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		return;
+	}
+
+	const user = await interaction.guild.members.fetch(userId);
+	const fromInput = interaction.fields.getTextInputValue(FROM_INPUT_MODAL_ID);
+	const timeInput = interaction.fields.getTextInputValue(TIME_INPUT_MODAL_ID);
+	const textInput = interaction.fields.getTextInputValue(TEXT_INPUT_MODAL_ID);
+	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
+	const content = `${getMemberName(user)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
+
+	const components = [...Array(inMemoryCarpool.numberOfSeats).keys()]
+		.map(i => {
+			return new ActionRowBuilder().addComponents(new ButtonBuilder()
+				.setCustomId(`${customId}-${i}`)
+				.setLabel('✅ Place disponible')
+				.setStyle(ButtonStyle.Secondary),
+			);
+		});
+	await interaction.reply({ content, components });
 });
 
 client.once('ready', () => {
