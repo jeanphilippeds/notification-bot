@@ -2,6 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBu
 import { COMMANDS } from '../config.js';
 import { getMemberName } from '../helper.js';
 
+const TRY_AGAIN_REPLY = { content: 'Erreur! Merci de répéter la commande /covoit', ephemeral: true };
+
 const CARPOOL_MEMORY_MAP = {};
 const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
@@ -64,7 +66,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	if (!customId || !customId.startsWith('carpool-')) return;
 
 	if (!CARPOOL_MEMORY_MAP[customId]) {
-		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
@@ -88,7 +90,7 @@ export const handleCarpoolButton = async (interaction) => {
 	const match = customId.match(/^button-(carpool-\w*)-(\w*)$/);
 
 	if (!match || !match[1] || !match[2]) {
-		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
@@ -96,7 +98,7 @@ export const handleCarpoolButton = async (interaction) => {
 	const seatIndex = match[2];
 
 	if (!CARPOOL_MEMORY_MAP[cacheKey]) {
-		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
