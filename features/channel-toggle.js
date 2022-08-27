@@ -39,42 +39,41 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 	});
 };
 
-export const handleChannelToggleClick = client => {
-	client.channels.cache.get(GENERAL_CHANNEL)
-		.createMessageComponentCollector()
-		.on('collect', async interaction => {
-			const { customId, user: { id: userId } } = interaction;
-			const match = customId.match(/^(show|hide):(\d*)$/);
+export const handleChannelToggleClick = async (client, interaction) => {
+	const { customId, user: { id: userId } } = interaction;
 
-			// CLICK ON AN OTHER BUTTON
-			if (!match || !match[1] || !match[2]) {
-				return;
-			}
+	if (!customId) return;
 
-			const actionString = match[1];
-			const channelId = match[2];
-			const buttonConfig = BUTTON_CONFIG[actionString];
+	const match = customId.match(/^(show|hide):(\d*)$/);
 
-			const user = await interaction.guild.members.fetch(userId);
-			const hasUserOptIn = !!user.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID);
+	// CLICK ON AN OTHER BUTTON
+	if (!match || !match[1] || !match[2]) {
+		return;
+	}
 
-			// NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
-			if (!hasUserOptIn) {
-				await interaction.reply({ content: 'Pense à activer l\'option pour afficher/masquer les salons (/activer... ou /desactiver...)', ephemeral: true });
-				return;
-			}
+	const actionString = match[1];
+	const channelId = match[2];
+	const buttonConfig = BUTTON_CONFIG[actionString];
 
-			// SHOW/HIDE THE CHANNEL AND REPLY WITH OPPOSITE BUTTON
-			client.channels.cache
-				.get(channelId)
-				.permissionOverwrites
-				.create(userId, {
-					ViewChannel: buttonConfig.displayChannel,
-				});
-			const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
+	const user = await interaction.guild.members.fetch(userId);
+	const hasUserOptIn = !!user.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID);
 
-			await interaction.reply({ content: buttonConfig.message, components: [buttonsRow], ephemeral: true });
+	// NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
+	if (!hasUserOptIn) {
+		await interaction.reply({ content: 'Pense à activer l\'option pour afficher/masquer les salons (/activer... ou /desactiver...)', ephemeral: true });
+		return;
+	}
+
+	// SHOW/HIDE THE CHANNEL AND REPLY WITH OPPOSITE BUTTON
+	client.channels.cache
+		.get(channelId)
+		.permissionOverwrites
+		.create(userId, {
+			ViewChannel: buttonConfig.displayChannel,
 		});
+	const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
+
+	await interaction.reply({ content: buttonConfig.message, components: [buttonsRow], ephemeral: true });
 };
 
 export const handleChannelToggleCommands = async (interaction) => {

@@ -20,9 +20,7 @@ if (useChannelToggleFeature) {
 	});
 	client.on('interactionCreate', async interaction => {
 		await handleChannelToggleCommands(interaction);
-	});
-	client.once('ready', () => {
-		handleChannelToggleClick(client);
+		await handleChannelToggleClick(client, interaction);
 	});
 }
 
