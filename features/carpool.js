@@ -7,6 +7,15 @@ const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
+const getButtonsRowFromMap = map => Object.entries(map)
+	.map(([, { isAvailable, passengerName, buttonKey }]) => {
+		return new ActionRowBuilder().addComponents(new ButtonBuilder()
+			.setCustomId(buttonKey)
+			.setLabel(isAvailable ? '✅ Place disponible' : `🐥 ${passengerName}`)
+			.setDisabled(!isAvailable)
+			.setStyle(ButtonStyle.Secondary),
+		);
+	});
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
@@ -41,36 +50,65 @@ export const handleCarpoolCommand = async (interaction) => {
 	const thirdActionRow = new ActionRowBuilder().addComponents(textInput);
 	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
 
-	CARPOOL_MEMORY_MAP[cacheKey] = { numberOfSeats: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption) };
+	CARPOOL_MEMORY_MAP[cacheKey] = [...Array(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption)).keys()]
+		.reduce((acc, i) => {
+			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
+		}, {});
 	await interaction.showModal(modal);
 };
 
 export const handleCarpoolModalSubmit = async (interaction) => {
-	const { customId, user: { id: userId } } = interaction;
+	const { customId, member } = interaction;
 
 	if (!interaction.isModalSubmit()) return;
-	if (!customId.startsWith('carpool-')) return;
+	if (!customId || !customId.startsWith('carpool-')) return;
 
-	const inMemoryCarpool = CARPOOL_MEMORY_MAP[customId];
-	if (!inMemoryCarpool) {
+	if (!CARPOOL_MEMORY_MAP[customId]) {
 		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
 		return;
 	}
 
-	const user = await interaction.guild.members.fetch(userId);
 	const fromInput = interaction.fields.getTextInputValue(FROM_INPUT_MODAL_ID);
 	const timeInput = interaction.fields.getTextInputValue(TIME_INPUT_MODAL_ID);
 	const textInput = interaction.fields.getTextInputValue(TEXT_INPUT_MODAL_ID);
 	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
-	const content = `${getMemberName(user)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
+	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
 
-	const components = [...Array(inMemoryCarpool.numberOfSeats).keys()]
-		.map(i => {
-			return new ActionRowBuilder().addComponents(new ButtonBuilder()
-				.setCustomId(`${customId}-${i}`)
-				.setLabel('✅ Place disponible')
-				.setStyle(ButtonStyle.Secondary),
-			);
-		});
-	await interaction.reply({ content, components });
+	await interaction.reply({
+		content,
+		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[customId]),
+	});
+};
+
+export const handleCarpoolButton = async (interaction) => {
+	const { customId, member } = interaction;
+
+	if (!customId || !customId.startsWith('button-carpool-')) return;
+
+	const match = customId.match(/^button-(carpool-\w*)-(\w*)$/);
+
+	if (!match || !match[1] || !match[2]) {
+		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		return;
+	}
+
+	const cacheKey = match[1];
+	const seatIndex = match[2];
+
+	if (!CARPOOL_MEMORY_MAP[cacheKey]) {
+		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
+		return;
+	}
+
+	const oldSeatInfo = CARPOOL_MEMORY_MAP[cacheKey][seatIndex];
+
+	CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
+		...oldSeatInfo,
+		isAvailable: !oldSeatInfo.isAvailable,
+		passengerName: oldSeatInfo.isAvailable ? getMemberName(member) : '',
+	};
+
+	await interaction.update({
+		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[cacheKey]),
+	});
 };

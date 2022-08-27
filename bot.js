@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { BOT_TOKEN } from './config.js';
-import { handleCarpoolCommand, handleCarpoolModalSubmit } from './features/carpool.js';
+import { handleCarpoolButton, handleCarpoolCommand, handleCarpoolModalSubmit } from './features/carpool.js';
 import { handleChannelToggleClick, handleChannelToggleCommands, updatePermissionsOnChannelCreate } from './features/channel-toggle.js';
 
 const client = new Client({
@@ -28,6 +28,7 @@ if (useCarpoolFeature) {
 	client.on('interactionCreate', async interaction => {
 		await handleCarpoolCommand(interaction);
 		await handleCarpoolModalSubmit(interaction);
+		await handleCarpoolButton(interaction);
 	});
 }
 
