@@ -55,8 +55,7 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	const channelId = match[2];
 	const buttonConfig = BUTTON_CONFIG[actionString];
 
-	const user = await interaction.guild.members.fetch(userId);
-	const hasUserOptIn = !!user.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID);
+	const hasUserOptIn = !!interaction.member.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID);
 
 	// NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
 	if (!hasUserOptIn) {
@@ -65,12 +64,19 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	}
 
 	// SHOW/HIDE THE CHANNEL AND REPLY WITH OPPOSITE BUTTON
-	client.channels.cache
-		.get(channelId)
-		.permissionOverwrites
-		.create(userId, {
-			ViewChannel: buttonConfig.displayChannel,
-		});
+	if (buttonConfig.displayChannel) {
+		client.channels.cache
+			.get(channelId)
+			.permissionOverwrites
+			.create(userId, { ViewChannel:true });
+	}
+	else {
+		client.channels.cache
+			.get(channelId)
+			.permissionOverwrites
+			.delete(userId);
+	}
+
 	const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
 
 	await interaction.reply({ content: buttonConfig.message, components: [buttonsRow], ephemeral: true });
@@ -78,23 +84,22 @@ export const handleChannelToggleClick = async (client, interaction) => {
 
 export const handleChannelToggleCommands = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
-	const { commandName, user: { id: userId } } = interaction;
+	const { commandName } = interaction;
 
 	if (![COMMANDS.activate.commandName, COMMANDS.deactivate.commandName].includes(commandName)) return;
 
-	const user = await interaction.guild.members.fetch(userId);
 	const role = interaction.guild.roles.cache.find(({ id }) => id === CHANNEL_TOGGLE_ROLE_ID);
 
 	switch (commandName) {
 	case COMMANDS.activate.commandName:
-		user.roles.add(role);
+		interaction.member.roles.add(role);
 		await interaction.reply({
 			content: 'Suivi de sorties activé. Tu peux désormais recevoir des notifications pour les sorties que tu veux suivre uniquement.',
 			ephemeral: true,
 		});
 		break;
 	case COMMANDS.deactivate.commandName:
-		user.roles.remove(role);
+		interaction.member.roles.remove(role);
 		await interaction.reply({
 			content: 'Suivi de sorties désactivé. Tu verras toutes les sorties dans la section Sorties',
 			ephemeral: true,
