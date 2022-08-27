@@ -9,14 +9,20 @@ const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
-const getButtonsRowFromMap = map => Object.entries(map)
-	.map(([, { isAvailable, passengerName, buttonKey }]) => {
-		return new ActionRowBuilder().addComponents(new ButtonBuilder()
-			.setCustomId(buttonKey)
-			.setLabel(isAvailable ? '✅ Place disponible' : `🐥 ${passengerName}`)
-			.setStyle(ButtonStyle.Secondary),
-		);
-	});
+const getButtonsRowFromMap = map => [
+	...Object.entries(map)
+		.map(([, { isAvailable, passengerName, buttonKey }]) => {
+			return new ActionRowBuilder().addComponents(new ButtonBuilder()
+				.setCustomId(buttonKey)
+				.setLabel(isAvailable ? '✅ Place disponible' : `🐥 ${passengerName}`)
+				.setStyle(isAvailable ? ButtonStyle.Primary : ButtonStyle.Secondary),
+			);
+		}),
+	new ActionRowBuilder().addComponents(new ButtonBuilder()
+		.setCustomId('button-carpool-remove')
+		.setLabel('Supprimer la voiture')
+		.setStyle(ButtonStyle.Danger)),
+];
 
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
@@ -86,6 +92,11 @@ export const handleCarpoolButton = async (interaction) => {
 	const { customId, member } = interaction;
 
 	if (!customId || !customId.startsWith('button-carpool-')) return;
+
+	if (customId === 'button-carpool-remove') {
+		interaction.message.delete();
+		return;
+	}
 
 	const match = customId.match(/^button-(carpool-\w*)-(\w*)$/);
 
