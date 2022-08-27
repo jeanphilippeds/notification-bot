@@ -18,7 +18,7 @@ const commands = [
 				.setDescription('Nombre de places disponibles en plus du conducteur')
 				.setRequired(true)
 				.setMinValue(1)
-				.setMaxValue(8),
+				.setMaxValue(4),
 		),
 ]
 	.map(command => command.toJSON());
