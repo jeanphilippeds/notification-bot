@@ -1,0 +1,1 @@
+export const getMemberName = member => member.nickname ?? member.user.username ?? 'Quelqu\'un';

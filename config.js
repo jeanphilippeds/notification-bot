@@ -40,7 +40,7 @@ export const COMMANDS = {
 
 export const MUTE_CATEGORY = getEnvKeyOrThrow('MUTE_CATEGORY');
 export const GENERAL_CHANNEL = getEnvKeyOrThrow('GENERAL_CHANNEL');
-export const ROLE_TOGGLE_ID = getEnvKeyOrThrow('ROLE_TOGGLE_ID');
+export const CHANNEL_TOGGLE_ROLE_ID = getEnvKeyOrThrow('CHANNEL_TOGGLE_ROLE_ID');
 export const BOT_TOKEN = getEnvKeyOrThrow('BOT_TOKEN');
 export const APPLICATION_ID = getEnvKeyOrThrow('APPLICATION_ID');
 export const GUILD_ID = getEnvKeyOrThrow('GUILD_ID');

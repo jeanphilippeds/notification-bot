@@ -1,6 +1,7 @@
-import { ActionRowBuilder, AuditLogEvent, ButtonBuilder, ButtonStyle, Client, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { BOT_TOKEN, BUTTON_CONFIG, COMMANDS, GENERAL_CHANNEL, getShowButton, MUTE_CATEGORY, ROLE_TOGGLE_ID } from './config.js';
-import { getMemberName } from './helper.js';
+import { Client, GatewayIntentBits } from 'discord.js';
+import { BOT_TOKEN } from './config.js';
+import { handleCarpoolCommand, handleCarpoolModalSubmit } from './features/carpool.js';
+import { handleChannelToggleClick, handleChannelToggleCommands, updatePermissionsOnChannelCreate } from './features/channel-toggle.js';
 
 const client = new Client({
 	intents: [
@@ -10,171 +11,30 @@ const client = new Client({
 	],
 });
 
-const CARPOOL_MEMORY_MAP = {};
-const FROM_INPUT_MODAL_ID = 'carpool-from-input';
-const TIME_INPUT_MODAL_ID = 'carpool-time-input';
-const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
+const useChannelToggleFeature = true;
+const useCarpoolFeature = true;
 
-client.on('channelCreate', async channel => {
-	const {
-		parentId: channelCategoryId,
-		id: channelId,
-		name: channelName,
-		guild,
-	} = channel;
-	if (!guild) return false; // This is a DM channel.
-	if (MUTE_CATEGORY !== channelCategoryId) return;
-
-	// A BIT HACKY BUT ONLY WAY - FOR NOW - TO FIND CHANNEL AUTHOR
-	const auditLogs = await guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
-	const channelAuthorEntry = auditLogs.entries.first();
-	if (!channelAuthorEntry) return console.error('No entry found for channel author.');
-	const author = await guild.members.fetch(channelAuthorEntry.executor.id);
-	const hasUserOptIn = !!author.roles.cache.get(ROLE_TOGGLE_ID);
-
-	// ALLOW AUTHOR TO VIEW ITS CHANNEL
-	if (hasUserOptIn) {
-		channel.permissionOverwrites.create(channelAuthorEntry.executor.id, {
-			ViewChannel: true,
-		});
-	}
-
-	// HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
-	channel.permissionOverwrites.create(channel.guild.roles.cache.get(ROLE_TOGGLE_ID), {
-		ViewChannel: false,
+if (useChannelToggleFeature) {
+	client.on('channelCreate', async channel => {
+		await updatePermissionsOnChannelCreate(client, channel);
 	});
-
-	// SEND BUTTONS TO OPT-IN/OPT-OUT
-	const buttonsRow = new ActionRowBuilder().addComponents(getShowButton(channelId));
-	client.channels.cache.get(GENERAL_CHANNEL).send({
-		content: `${getMemberName(author)} vient de proposer la sortie: #${channelName}.`,
-		components: [buttonsRow],
+	client.on('interactionCreate', async interaction => {
+		await handleChannelToggleCommands(interaction);
 	});
-});
+	client.once('ready', () => {
+		handleChannelToggleClick(client);
+	});
+}
 
-client.on('interactionCreate', async interaction => {
-	if (!interaction.isChatInputCommand()) return;
-
-	const { commandName, id: interactionId, user: { id: userId } } = interaction;
-	const user = await interaction.guild.members.fetch(userId);
-	const role = interaction.guild.roles.cache.find(({ id }) => id === ROLE_TOGGLE_ID);
-	const cacheKey = `carpool-${interactionId}`;
-
-	const modal = new ModalBuilder()
-		.setCustomId(cacheKey)
-		.setTitle('Nouvelle voiture');
-
-	const fromInput = new TextInputBuilder()
-		.setCustomId(FROM_INPUT_MODAL_ID)
-		.setLabel('Point de départ')
-		.setStyle(TextInputStyle.Short);
-
-	const timeInput = new TextInputBuilder()
-		.setCustomId(TIME_INPUT_MODAL_ID)
-		.setLabel('Heure de départ')
-		.setStyle(TextInputStyle.Short);
-
-	const textInput = new TextInputBuilder()
-		.setCustomId(TEXT_INPUT_MODAL_ID)
-		.setLabel('Commentaire')
-		.setRequired(false)
-		.setStyle(TextInputStyle.Short);
-
-	const firstActionRow = new ActionRowBuilder().addComponents(fromInput);
-	const secondActionRow = new ActionRowBuilder().addComponents(timeInput);
-	const thirdActionRow = new ActionRowBuilder().addComponents(textInput);
-	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
-
-	switch (commandName) {
-	case COMMANDS.activate.commandName:
-		user.roles.add(role);
-		await interaction.reply({
-			content: 'Suivi de sorties activé. Tu peux désormais recevoir des notifications pour les sorties que tu veux suivre uniquement.',
-			ephemeral: true,
-		});
-		break;
-	case COMMANDS.deactivate.commandName:
-		user.roles.remove(role);
-		await interaction.reply({
-			content: 'Suivi de sorties désactivé. Tu verras toutes les sorties dans la section Sorties',
-			ephemeral: true,
-		});
-		break;
-	case COMMANDS.carpool.commandName:
-		CARPOOL_MEMORY_MAP[cacheKey] = { numberOfSeats: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption) };
-		await interaction.showModal(modal);
-		break;
-	}
-});
-
-client.on('interactionCreate', async interaction => {
-	const { customId, user: { id: userId } } = interaction;
-
-	if (!interaction.isModalSubmit()) return;
-
-	const inMemoryCarpool = CARPOOL_MEMORY_MAP[customId];
-	if (!inMemoryCarpool) {
-		await interaction.reply({ content: 'Oups! Merci de répéter la commande /covoit', ephemeral: true });
-		return;
-	}
-
-	const user = await interaction.guild.members.fetch(userId);
-	const fromInput = interaction.fields.getTextInputValue(FROM_INPUT_MODAL_ID);
-	const timeInput = interaction.fields.getTextInputValue(TIME_INPUT_MODAL_ID);
-	const textInput = interaction.fields.getTextInputValue(TEXT_INPUT_MODAL_ID);
-	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
-	const content = `${getMemberName(user)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
-
-	const components = [...Array(inMemoryCarpool.numberOfSeats).keys()]
-		.map(i => {
-			return new ActionRowBuilder().addComponents(new ButtonBuilder()
-				.setCustomId(`${customId}-${i}`)
-				.setLabel('✅ Place disponible')
-				.setStyle(ButtonStyle.Secondary),
-			);
-		});
-	await interaction.reply({ content, components });
-});
+if (useCarpoolFeature) {
+	client.on('interactionCreate', async interaction => {
+		await handleCarpoolCommand(interaction);
+		await handleCarpoolModalSubmit(interaction);
+	});
+}
 
 client.once('ready', () => {
 	console.log('Bot is ready!');
-
-	client.channels.cache.get(GENERAL_CHANNEL)
-		.createMessageComponentCollector()
-		.on('collect', async interaction => {
-			const { customId, user: { id: userId } } = interaction;
-			const match = customId.match(/^(show|hide):(\d*)$/);
-
-			// CLICK ON AN OTHER BUTTON
-			if (!match || !match[1] || !match[2]) {
-				await interaction.deferUpdate();
-				return;
-			}
-
-			const actionString = match[1];
-			const channelId = match[2];
-			const buttonConfig = BUTTON_CONFIG[actionString];
-
-			const user = await interaction.guild.members.fetch(userId);
-			const hasUserOptIn = !!user.roles.cache.get(ROLE_TOGGLE_ID);
-
-			// NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
-			if (!hasUserOptIn) {
-				await interaction.reply({ content: 'Pense à activer l\'option pour afficher/masquer les salons (/activer... ou /desactiver...)', ephemeral: true });
-				return;
-			}
-
-			// SHOW/HIDE THE CHANNEL AND REPLY WITH OPPOSITE BUTTON
-			client.channels.cache
-				.get(channelId)
-				.permissionOverwrites
-				.create(userId, {
-					ViewChannel: buttonConfig.displayChannel,
-				});
-			const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
-
-			await interaction.reply({ content: buttonConfig.message, components: [buttonsRow], ephemeral: true });
-		});
 });
 
 client.login(BOT_TOKEN);

@@ -7,7 +7,7 @@
 - Ajouter 1 bouton Libérer une place
 - Renvoyer un nouveau message updaté
 - Si crash du bot (memory state?)
-- Deploy (remove 000 from BOT_TOKEN)
+- Deploy (remove 000 from BOT_TOKEN et update CHANNEL_TOGGLE_ROLE_ID)
 
 
 - Refacto bot.js pour splitter les 2 bots
