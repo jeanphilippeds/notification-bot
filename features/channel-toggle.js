@@ -64,17 +64,18 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	}
 
 	// SHOW/HIDE THE CHANNEL AND REPLY WITH OPPOSITE BUTTON
+	const toUpdateChannel = client.channels.cache.get(channelId);
+
+	if (!toUpdateChannel) {
+		await interaction.reply({ content: 'Ce channel a été supprimé :/', ephemeral: true });
+		return;
+	}
+
 	if (buttonConfig.displayChannel) {
-		client.channels.cache
-			.get(channelId)
-			.permissionOverwrites
-			.create(userId, { ViewChannel:true });
+		toUpdateChannel.permissionOverwrites.create(userId, { ViewChannel:true });
 	}
 	else {
-		client.channels.cache
-			.get(channelId)
-			.permissionOverwrites
-			.delete(userId);
+		toUpdateChannel.permissionOverwrites.delete(userId);
 	}
 
 	const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
