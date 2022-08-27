@@ -1,1 +1,1 @@
-worker: pm2 start bot.js && pm2 logs all
+worker: pm2 start bot.js -i 1 && pm2 logs all
