@@ -10,7 +10,7 @@ const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
 const redisClient = createClient({
-	url: getEnvKeyOrThrow(process.env.REDISCLOUD_URL),
+	url: getEnvKeyOrThrow('REDISCLOUD_URL'),
 });
 
 redisClient.connect();
