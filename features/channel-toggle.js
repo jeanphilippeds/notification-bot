@@ -16,7 +16,7 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 	const auditLogs = await guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
 	const channelAuthorEntry = auditLogs.entries.first();
 	if (!channelAuthorEntry) {
-		console.error(`No entry found for channel (${channelId}) author.`);
+		console.error(`No entry found for channel #${channel.name} author.`);
 		return;
 	}
 	const authorId = channelAuthorEntry.executor.id;
@@ -25,14 +25,14 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 
 	// ALLOW AUTHOR TO VIEW ITS CHANNEL
 	if (hasUserOptIn) {
-		console.log(`[CHAN] User "${getMemberName(author)}" will follow its channel: ${channelId}`);
+		console.log(`[CHAN] User "${getMemberName(author)}" will follow its channel: #${channel.name}`);
 		channel.permissionOverwrites.create(authorId, {
 			ViewChannel: true,
 		});
 	}
 
 	// HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
-	console.log(`[CHAN] Hiding channel: ${channelId} for all users that activated the feature.`);
+	console.log(`[CHAN] Hiding channel #${channel.name} for all users that activated the feature.`);
 	channel.permissionOverwrites.create(channel.guild.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID), {
 		ViewChannel: false,
 	});
@@ -74,17 +74,17 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	const toUpdateChannel = client.channels.cache.get(channelId);
 
 	if (!toUpdateChannel) {
-		console.log(`[CHAN] User "${getMemberName(interaction.member)}" tried to follow the deleted channel: ${channelId}`);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" tried to follow the deleted channel: #${toUpdateChannel.name}`);
 		await interaction.reply({ content: 'Ce channel a été supprimé :/', ephemeral: true });
 		return;
 	}
 
 	if (buttonConfig.displayChannel) {
-		console.log(`[CHAN] User "${getMemberName(interaction.member)}" subscribed to channel: ${channelId}`);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" subscribed to channel: #${toUpdateChannel.name}`);
 		toUpdateChannel.permissionOverwrites.create(userId, { ViewChannel:true });
 	}
 	else {
-		console.log(`[CHAN] User "${getMemberName(interaction.member)}" unsubscribed from channel: ${channelId}`);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" unsubscribed from channel: #${toUpdateChannel.name}`);
 		toUpdateChannel.permissionOverwrites.delete(userId);
 	}
 
