@@ -70,6 +70,7 @@ export const handleCarpoolCommand = async (interaction) => {
 		}, {});
 
 	await redisClient.set(cacheKey, JSON.stringify(initialSeatsObject));
+	await redisClient.expire(cacheKey, 60 * 60 * 24 * 30); // Expire after 1 month
 	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
