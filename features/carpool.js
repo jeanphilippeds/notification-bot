@@ -1,13 +1,19 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { COMMANDS } from '../config.js';
+import { createClient } from 'redis';
+import { COMMANDS, getEnvKeyOrThrow } from '../config.js';
 import { getMemberName } from '../helper.js';
 
 const TRY_AGAIN_REPLY = { content: 'Erreur! Merci de répéter la commande /covoit', ephemeral: true };
 
-const CARPOOL_MEMORY_MAP = {};
 const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
+
+const redisClient = createClient({
+	url: getEnvKeyOrThrow(process.env.REDISCLOUD_URL),
+});
+
+redisClient.connect();
 
 const getButtonsRowFromMap = map => [
 	...Object.entries(map)
@@ -58,11 +64,12 @@ export const handleCarpoolCommand = async (interaction) => {
 	const thirdActionRow = new ActionRowBuilder().addComponents(textInput);
 	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
 
-	CARPOOL_MEMORY_MAP[cacheKey] = [...Array(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption)).keys()]
+	const initialSeatsObject = [...Array(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption)).keys()]
 		.reduce((acc, i) => {
 			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
 		}, {});
 
+	await redisClient.set(cacheKey, JSON.stringify(initialSeatsObject));
 	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
@@ -73,7 +80,9 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!customId || !customId.startsWith('carpool-')) return;
 
-	if (!CARPOOL_MEMORY_MAP[customId]) {
+	const storedSeats = await redisClient.get(customId);
+
+	if (!storedSeats) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" answered modal on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
@@ -88,7 +97,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
 	await interaction.reply({
 		content,
-		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[customId]),
+		components: getButtonsRowFromMap(JSON.parse(storedSeats)),
 	});
 };
 
@@ -112,17 +121,19 @@ export const handleCarpoolButton = async (interaction) => {
 
 	const cacheKey = match[1];
 	const seatIndex = match[2];
+	const storedSeatsObject = await redisClient.get(customId);
 
-	if (!CARPOOL_MEMORY_MAP[cacheKey]) {
+	if (!storedSeatsObject) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
-	const { isAvailable, passengerMemberId, buttonKey } = CARPOOL_MEMORY_MAP[cacheKey][seatIndex];
+	const updatedSeatsObjects = JSON.parse(storedSeatsObject);
+	const { isAvailable, passengerMemberId, buttonKey } = updatedSeatsObjects[seatIndex];
 
 	if (isAvailable) {
-		CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
+		updatedSeatsObjects[seatIndex] = {
 			buttonKey,
 			isAvailable: false,
 			passengerName: getMemberName(member),
@@ -132,14 +143,16 @@ export const handleCarpoolButton = async (interaction) => {
 	}
 
 	if (!isAvailable && passengerMemberId === member.id) {
-		CARPOOL_MEMORY_MAP[cacheKey][seatIndex] = {
+		updatedSeatsObjects[seatIndex] = {
 			buttonKey,
 			isAvailable: true,
 		};
 		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
+	await redisClient.set(cacheKey, JSON.stringify(updatedSeatsObjects));
+
 	await interaction.update({
-		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[cacheKey]),
+		components: getButtonsRowFromMap(updatedSeatsObjects),
 	});
 };
