@@ -15,18 +15,24 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 	// A BIT HACKY BUT ONLY WAY - FOR NOW - TO FIND CHANNEL AUTHOR
 	const auditLogs = await guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
 	const channelAuthorEntry = auditLogs.entries.first();
-	if (!channelAuthorEntry) return console.error('No entry found for channel author.');
-	const author = await guild.members.fetch(channelAuthorEntry.executor.id);
+	if (!channelAuthorEntry) {
+		console.error(`No entry found for channel (${channelId}) author.`);
+		return;
+	}
+	const authorId = channelAuthorEntry.executor.id;
+	const author = await guild.members.fetch(authorId);
 	const hasUserOptIn = !!author.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID);
 
 	// ALLOW AUTHOR TO VIEW ITS CHANNEL
 	if (hasUserOptIn) {
-		channel.permissionOverwrites.create(channelAuthorEntry.executor.id, {
+		console.log(`[CHAN] User "${getMemberName(author)}" will follow its channel: ${channelId}`);
+		channel.permissionOverwrites.create(authorId, {
 			ViewChannel: true,
 		});
 	}
 
 	// HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
+	console.log(`[CHAN] Hiding channel: ${channelId} for all users that activated the feature.`);
 	channel.permissionOverwrites.create(channel.guild.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID), {
 		ViewChannel: false,
 	});
@@ -59,6 +65,7 @@ export const handleChannelToggleClick = async (client, interaction) => {
 
 	// NO NEED TO TOGGLE DISPLAY IF USER DOES NOT HAVE THE ROLE
 	if (!hasUserOptIn) {
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" tried to use the feature before feature activation`);
 		await interaction.reply({ content: 'Pense à activer l\'option pour afficher/masquer les salons (/activer... ou /desactiver...)', ephemeral: true });
 		return;
 	}
@@ -67,14 +74,17 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	const toUpdateChannel = client.channels.cache.get(channelId);
 
 	if (!toUpdateChannel) {
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" tried to follow the deleted channel: ${channelId}`);
 		await interaction.reply({ content: 'Ce channel a été supprimé :/', ephemeral: true });
 		return;
 	}
 
 	if (buttonConfig.displayChannel) {
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" subscribed to channel: ${channelId}`);
 		toUpdateChannel.permissionOverwrites.create(userId, { ViewChannel:true });
 	}
 	else {
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" unsubscribed from channel: ${channelId}`);
 		toUpdateChannel.permissionOverwrites.delete(userId);
 	}
 
@@ -94,6 +104,7 @@ export const handleChannelToggleCommands = async (interaction) => {
 	switch (commandName) {
 	case COMMANDS.activate.commandName:
 		interaction.member.roles.add(role);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" activated the feature`);
 		await interaction.reply({
 			content: 'Suivi de sorties activé. Tu peux désormais recevoir des notifications pour les sorties que tu veux suivre uniquement.',
 			ephemeral: true,
@@ -101,6 +112,7 @@ export const handleChannelToggleCommands = async (interaction) => {
 		break;
 	case COMMANDS.deactivate.commandName:
 		interaction.member.roles.remove(role);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" deactivated the feature`);
 		await interaction.reply({
 			content: 'Suivi de sorties désactivé. Tu verras toutes les sorties dans la section Sorties',
 			ephemeral: true,
