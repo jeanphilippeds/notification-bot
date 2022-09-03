@@ -16,7 +16,7 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 	const auditLogs = await guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
 	const channelAuthorEntry = auditLogs.entries.first();
 	if (!channelAuthorEntry) {
-		console.error(`No entry found for channel #${channel.name} author.`);
+		console.error(`[CHAN] No entry found for channel #${channel.name} author.`);
 		return;
 	}
 	const authorId = channelAuthorEntry.executor.id;
@@ -25,17 +25,17 @@ export const updatePermissionsOnChannelCreate = async (client, channel) => {
 
 	// ALLOW AUTHOR TO VIEW ITS CHANNEL
 	if (hasUserOptIn) {
-		console.log(`[CHAN] User "${getMemberName(author)}" will follow its channel: #${channel.name}`);
 		channel.permissionOverwrites.create(authorId, {
 			ViewChannel: true,
 		});
+		console.log(`[CHAN] User "${getMemberName(author)}" will follow its channel: #${channel.name}`);
 	}
 
 	// HIDE NEW CHANNEL FOR USERS THAT CHOSED OPT-IN METHOD
-	console.log(`[CHAN] Hiding channel #${channel.name} for all users that activated the feature.`);
 	channel.permissionOverwrites.create(channel.guild.roles.cache.get(CHANNEL_TOGGLE_ROLE_ID), {
 		ViewChannel: false,
 	});
+	console.log(`[CHAN] Hiding channel #${channel.name} for all users that activated the feature.`);
 
 	// SEND BUTTONS TO OPT-IN/OPT-OUT
 	const buttonsRow = new ActionRowBuilder().addComponents(getShowButton(channelId));
@@ -80,12 +80,12 @@ export const handleChannelToggleClick = async (client, interaction) => {
 	}
 
 	if (buttonConfig.displayChannel) {
-		console.log(`[CHAN] User "${getMemberName(interaction.member)}" subscribed to channel: #${toUpdateChannel.name}`);
 		toUpdateChannel.permissionOverwrites.create(userId, { ViewChannel:true });
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" subscribed to channel: #${toUpdateChannel.name}`);
 	}
 	else {
-		console.log(`[CHAN] User "${getMemberName(interaction.member)}" unsubscribed from channel: #${toUpdateChannel.name}`);
 		toUpdateChannel.permissionOverwrites.delete(userId);
+		console.log(`[CHAN] User "${getMemberName(interaction.member)}" unsubscribed from channel: #${toUpdateChannel.name}`);
 	}
 
 	const buttonsRow = new ActionRowBuilder().addComponents(buttonConfig.getNextButton(channelId));
