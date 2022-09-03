@@ -122,7 +122,7 @@ export const handleCarpoolButton = async (interaction) => {
 
 	const cacheKey = match[1];
 	const seatIndex = match[2];
-	const storedSeatsObject = await redisClient.get(customId);
+	const storedSeatsObject = await redisClient.get(cacheKey);
 
 	if (!storedSeatsObject) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
