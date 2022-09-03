@@ -27,7 +27,7 @@ const getButtonsRowFromMap = map => [
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
-	const { commandName, id: interactionId } = interaction;
+	const { commandName, id: interactionId, member } = interaction;
 
 	if (COMMANDS.carpool.commandName !== commandName) return;
 
@@ -62,6 +62,8 @@ export const handleCarpoolCommand = async (interaction) => {
 		.reduce((acc, i) => {
 			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
 		}, {});
+
+	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
 
@@ -72,6 +74,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	if (!customId || !customId.startsWith('carpool-')) return;
 
 	if (!CARPOOL_MEMORY_MAP[customId]) {
+		console.log(`[CARPOOL] User "${getMemberName(member)}" answered modal on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
@@ -82,6 +85,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
 	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
 
+	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
 	await interaction.reply({
 		content,
 		components: getButtonsRowFromMap(CARPOOL_MEMORY_MAP[customId]),
@@ -95,13 +99,14 @@ export const handleCarpoolButton = async (interaction) => {
 
 	if (customId === 'button-carpool-remove') {
 		interaction.message.delete();
+		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
 		return;
 	}
 
 	const match = customId.match(/^button-(carpool-\w*)-(\w*)$/);
 
+	// CLICK ON AN OTHER BUTTON
 	if (!match || !match[1] || !match[2]) {
-		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
@@ -109,6 +114,7 @@ export const handleCarpoolButton = async (interaction) => {
 	const seatIndex = match[2];
 
 	if (!CARPOOL_MEMORY_MAP[cacheKey]) {
+		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
@@ -122,6 +128,7 @@ export const handleCarpoolButton = async (interaction) => {
 			passengerName: getMemberName(member),
 			passengerMemberId: member.id,
 		};
+		console.log(`[CARPOOL] User "${getMemberName(member)}" reserved seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
 	if (!isAvailable && passengerMemberId === member.id) {
@@ -129,6 +136,7 @@ export const handleCarpoolButton = async (interaction) => {
 			buttonKey,
 			isAvailable: true,
 		};
+		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
 	await interaction.update({
