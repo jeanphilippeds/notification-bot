@@ -158,11 +158,11 @@ export const handleCarpoolButton = async (interaction) => {
 		return;
 	}
 
-	const updatedCarpoolObject = storedCarpoolObject;
-	const { isAvailable, passengerMemberId, buttonKey } = updatedCarpoolObject.seats[seatIndex];
+	const { isAvailable, passengerMemberId, buttonKey } = storedCarpoolObject.seats[seatIndex];
+	let seatToUpdate;
 
 	if (isAvailable) {
-		updatedCarpoolObject.seats[seatIndex] = {
+		seatToUpdate = {
 			buttonKey,
 			isAvailable: false,
 			passengerName: getMemberName(member),
@@ -172,12 +172,20 @@ export const handleCarpoolButton = async (interaction) => {
 	}
 
 	if (!isAvailable && passengerMemberId === member.id) {
-		updatedCarpoolObject.seats[seatIndex] = {
+		seatToUpdate = {
 			buttonKey,
 			isAvailable: true,
 		};
 		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
+
+	const updatedCarpoolObject = {
+		...storedCarpoolObject,
+		seats: {
+			...storedCarpoolObject.seats,
+			[seatIndex]: seatToUpdate,
+		},
+	};
 
 	await setStoredCarpool(cacheKey, updatedCarpoolObject);
 
