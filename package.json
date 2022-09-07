@@ -5,8 +5,7 @@
   "description": "",
   "main": "bot.js",
   "scripts": {
-    "start": "pm2 start bot.js -i 1 && pm2 logs all",
-    "preinstall": "npm i -g pm2 && pm2 install pm2-logrotate",
+    "start": "pm2 start bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -15,6 +14,7 @@
     "@discordjs/rest": "^1.0.1",
     "discord.js": "^14.1.1",
     "dotenv": "^16.0.1",
+    "pm2": "^5.2.0",
     "redis": "^4.3.0"
   },
   "devDependencies": {
