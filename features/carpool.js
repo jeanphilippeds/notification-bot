@@ -90,7 +90,7 @@ export const handleCarpoolCommand = async (interaction) => {
 			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
 		}, {});
 
-	await setStoredCarpool(cacheKey, initialSeatsObject);
+	await setStoredCarpool(cacheKey, { seats: initialSeatsObject });
 	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
@@ -101,7 +101,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!customId || !customId.startsWith('carpool-')) return;
 
-	const storedSeats = await getStoredCarpool(customId);
+	const { seats: storedSeats } = await getStoredCarpool(customId);
 
 	if (!storedSeats) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" answered modal on ${customId} but no corresponding entry found.`);
@@ -114,6 +114,14 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	const textInput = interaction.fields.getTextInputValue(TEXT_INPUT_MODAL_ID);
 	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
 	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
+
+	await setStoredCarpool(customId, {
+		from: fromInput,
+		timeInput: timeInput,
+		textInput: textInput,
+		by: getMemberName(member),
+		seats: storedSeats,
+	});
 
 	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
 	await interaction.reply({
@@ -142,19 +150,19 @@ export const handleCarpoolButton = async (interaction) => {
 
 	const cacheKey = match[1];
 	const seatIndex = match[2];
-	const storedSeatsObject = await getStoredCarpool(cacheKey);
+	const storedCarpoolObject = await getStoredCarpool(cacheKey);
 
-	if (!storedSeatsObject) {
+	if (!storedCarpoolObject) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
 		return;
 	}
 
-	const updatedSeatsObjects = storedSeatsObject;
-	const { isAvailable, passengerMemberId, buttonKey } = updatedSeatsObjects[seatIndex];
+	const updatedCarpoolObject = storedCarpoolObject;
+	const { isAvailable, passengerMemberId, buttonKey } = updatedCarpoolObject.seats[seatIndex];
 
 	if (isAvailable) {
-		updatedSeatsObjects[seatIndex] = {
+		updatedCarpoolObject.seats[seatIndex] = {
 			buttonKey,
 			isAvailable: false,
 			passengerName: getMemberName(member),
@@ -164,16 +172,16 @@ export const handleCarpoolButton = async (interaction) => {
 	}
 
 	if (!isAvailable && passengerMemberId === member.id) {
-		updatedSeatsObjects[seatIndex] = {
+		updatedCarpoolObject.seats[seatIndex] = {
 			buttonKey,
 			isAvailable: true,
 		};
 		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
-	await setStoredCarpool(cacheKey, updatedSeatsObjects);
+	await setStoredCarpool(cacheKey, updatedCarpoolObject);
 
 	await interaction.update({
-		components: getButtonsRowFromMap(updatedSeatsObjects),
+		components: getButtonsRowFromMap(updatedCarpoolObject.seats),
 	});
 };
