@@ -5,7 +5,7 @@
   "description": "",
   "main": "bot.js",
   "scripts": {
-    "start": "pm2 stop bot && pm2 start bot.js && pm2 logs all",
+    "start": "pm2 restart ecosystem.config.cjs && pm2 logs all",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
