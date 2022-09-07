@@ -1,6 +1,7 @@
+import AWS from 'aws-sdk';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { createClient } from 'redis';
 import { COMMANDS, getEnvKeyOrThrow } from '../config.js';
+
 import { getMemberName } from '../helper.js';
 
 const TRY_AGAIN_REPLY = { content: 'Erreur! Merci de répéter la commande /covoit', ephemeral: true };
@@ -9,11 +10,31 @@ const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
-const redisClient = createClient({
-	url: getEnvKeyOrThrow('REDISCLOUD_URL'),
-});
+const ddb = new AWS.DynamoDB.DocumentClient({ region: getEnvKeyOrThrow('AWS_REGION') });
 
-redisClient.connect();
+const getStoredCarpool = async (cacheKey) => {
+	return await ddb
+		.get({
+			TableName: getEnvKeyOrThrow('AWS_DYNAMO_TABLE'),
+			Key: { cacheKey },
+		})
+		.promise()
+		.then(({ Item: { data } }) => data);
+};
+
+const setStoredCarpool = async (cacheKey, carpoolObject) => {
+	const today = new Date();
+	await ddb
+		.put({
+			TableName: getEnvKeyOrThrow('AWS_DYNAMO_TABLE'),
+			Item: {
+				cacheKey,
+				data: carpoolObject,
+				ttl: today.setMonth(today.getMonth() + 1),
+			},
+		})
+		.promise();
+};
 
 const getButtonsRowFromMap = map => [
 	...Object.entries(map)
@@ -69,8 +90,7 @@ export const handleCarpoolCommand = async (interaction) => {
 			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
 		}, {});
 
-	await redisClient.set(cacheKey, JSON.stringify(initialSeatsObject));
-	await redisClient.expire(cacheKey, 60 * 60 * 24 * 30); // Expire after 1 month
+	await setStoredCarpool(cacheKey, initialSeatsObject);
 	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
@@ -81,7 +101,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!customId || !customId.startsWith('carpool-')) return;
 
-	const storedSeats = await redisClient.get(customId);
+	const storedSeats = await getStoredCarpool(customId);
 
 	if (!storedSeats) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" answered modal on ${customId} but no corresponding entry found.`);
@@ -98,7 +118,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
 	await interaction.reply({
 		content,
-		components: getButtonsRowFromMap(JSON.parse(storedSeats)),
+		components: getButtonsRowFromMap(storedSeats),
 	});
 };
 
@@ -122,7 +142,7 @@ export const handleCarpoolButton = async (interaction) => {
 
 	const cacheKey = match[1];
 	const seatIndex = match[2];
-	const storedSeatsObject = await redisClient.get(cacheKey);
+	const storedSeatsObject = await getStoredCarpool(cacheKey);
 
 	if (!storedSeatsObject) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
@@ -130,7 +150,7 @@ export const handleCarpoolButton = async (interaction) => {
 		return;
 	}
 
-	const updatedSeatsObjects = JSON.parse(storedSeatsObject);
+	const updatedSeatsObjects = storedSeatsObject;
 	const { isAvailable, passengerMemberId, buttonKey } = updatedSeatsObjects[seatIndex];
 
 	if (isAvailable) {
@@ -151,7 +171,7 @@ export const handleCarpoolButton = async (interaction) => {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
-	await redisClient.set(cacheKey, JSON.stringify(updatedSeatsObjects));
+	await setStoredCarpool(cacheKey, updatedSeatsObjects);
 
 	await interaction.update({
 		components: getButtonsRowFromMap(updatedSeatsObjects),
