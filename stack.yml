@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack needed to run Duck Discord Bot
+Parameters:
+  DatabaseName:
+    Type: String
+    Default: discord-bot-carpool-state
+  DatabasePartitionKey:
+    Type: String
+    Default: cacheKey
+  GithubRepository:
+    Type: String
+    Default: jeanphilippeds/notification-bot
+  BotTokenSecretPath:
+    Type: String
+    Default: discord/bot-token:SecretString:BOT_TOKEN
+Resources:
+  carpoolStateDatabase:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - 
+        AttributeName: !Ref DatabasePartitionKey
+        AttributeType: S
+      TableName: !Ref DatabaseName
+      KeySchema:
+      - 
+        AttributeName: !Ref DatabasePartitionKey
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+  nodeApp:
+      Type: AWS::ElasticBeanstalk::Application
+      Properties:
+        ApplicationName: !Ref AWS::StackName
+  nodeAppConfigurationTemplate:
+      Type: AWS::ElasticBeanstalk::ConfigurationTemplate
+      Properties:
+          ApplicationName: !Ref nodeApp
+          SolutionStackName: 64bit Amazon Linux 2 v5.5.6 running Node.js 16
+          OptionSettings:
+            - Namespace: aws:autoscaling:asg
+              OptionName: MaxSize
+              Value: 1
+            - Namespace: aws:autoscaling:asg
+              OptionName: MinSize
+              Value: 1
+            - 
+              Namespace: aws:autoscaling:launchconfiguration
+              OptionName: InstanceType
+              Value: t2.micro
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: APPLICATION_ID
+              Value: 1002520014512984124
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: AWS_DYNAMO_TABLE
+              Value: !Ref DatabaseName
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: AWS_REGION
+              Value: !Ref AWS::Region
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: BOT_TOKEN
+              Value: !Sub '{{resolve:secretsmanager:${BotTokenSecretPath}}}'
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: CHANNEL_TOGGLE_ROLE_ID
+              Value: 1012677664185782423
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: GENERAL_CHANNEL
+              Value: 1002514736946102306
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: GUILD_ID
+              Value: 1002514736946102302
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: MUTE_CATEGORY
+              Value: 1002583887559528488
+            - 
+              Namespace: aws:elasticbeanstalk:application:environment
+              OptionName: NPM_CONFIG_FORCE
+              Value: true
+            - 
+              Namespace: aws:elasticbeanstalk:cloudwatch:logs
+              OptionName: StreamLogs
+              Value: true
+            - Namespace: aws:autoscaling:launchconfiguration
+              OptionName: IamInstanceProfile
+              Value: !Ref nodeAppInstanceProfile  
+  nodeAppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref nodeAppRole
+  nodeAppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: Beanstalk EC2 role
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier
+        - !Ref singleItemReadAndWritePolicy
+  nodeAppEnv:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref nodeApp
+      TemplateName: !Ref nodeAppConfigurationTemplate
+      Tier:
+        Name: Worker
+        Type: SQS/HTTP
+        Version: 3.0
+  singleItemReadAndWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+            Resource: '*'
+  codeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-codepipeline'
+  githubConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Properties:
+      ConnectionName: GithubConnection
+      ProviderType: GitHub
+  codePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /service-role/
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: !Sub 'Code Pipeline role to deploy ${AWS::StackName} to EBS'
+      ManagedPolicyArns:
+        - !Ref codePipelinePolicy
+  codePipelinePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'iam:PassRole'
+            Resource: '*'
+            Effect: Allow
+            Condition:
+              StringEqualsIfExists:
+                'iam:PassedToService':
+                  - cloudformation.amazonaws.com
+                  - elasticbeanstalk.amazonaws.com
+                  - ec2.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+          - Action:
+              - 'codecommit:CancelUploadArchive'
+              - 'codecommit:GetBranch'
+              - 'codecommit:GetCommit'
+              - 'codecommit:GetRepository'
+              - 'codecommit:GetUploadArchiveStatus'
+              - 'codecommit:UploadArchive'
+            Resource: '*'
+            Effect: Allow
+          - Action:
+              - 'codedeploy:CreateDeployment'
+              - 'codedeploy:GetApplication'
+              - 'codedeploy:GetApplicationRevision'
+              - 'codedeploy:GetDeployment'
+              - 'codedeploy:GetDeploymentConfig'
+              - 'codedeploy:RegisterApplicationRevision'
+            Resource: '*'
+            Effect: Allow
+          - Action:
+              - 'codestar-connections:UseConnection'
+            Resource: '*'
+            Effect: Allow
+          - Action:
+              - 'elasticbeanstalk:*'
+              - 'ec2:*'
+              - 'elasticloadbalancing:*'
+              - 'autoscaling:*'
+              - 'cloudwatch:*'
+              - 's3:*'
+              - 'sns:*'
+              - 'cloudformation:*'
+              - 'rds:*'
+              - 'logs:*'
+              - 'sqs:*'
+              - 'ecs:*'
+            Resource: '*'
+            Effect: Allow
+          - Action:
+              - 'lambda:InvokeFunction'
+              - 'lambda:ListFunctions'
+            Resource: '*'
+            Effect: Allow
+          - Action:
+              - 'cloudformation:CreateStack'
+              - 'cloudformation:DeleteStack'
+              - 'cloudformation:DescribeStacks'
+              - 'cloudformation:UpdateStack'
+              - 'cloudformation:CreateChangeSet'
+              - 'cloudformation:DeleteChangeSet'
+              - 'cloudformation:DescribeChangeSet'
+              - 'cloudformation:ExecuteChangeSet'
+              - 'cloudformation:SetStackPolicy'
+              - 'cloudformation:ValidateTemplate'
+            Resource: '*'
+            Effect: Allow
+          - Effect: Allow
+            Action:
+              - 'cloudformation:ValidateTemplate'
+            Resource: '*'
+  codePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub 'deploy-${AWS::StackName}-to-ebs'
+      RoleArn: !GetAtt codePipelineRole.Arn
+      ArtifactStore:
+        Location: !Ref codeBucket
+        Type: S3
+      Stages:
+        - 
+          Name: Source
+          Actions:
+            - 
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: 1
+              Configuration:
+                BranchName: master
+                ConnectionArn: !Ref githubConnection
+                FullRepositoryId: !Ref GithubRepository
+                OutputArtifactFormat: CODE_ZIP
+              OutputArtifacts:
+                - 
+                  Name: SourceArtifact
+              Region: !Ref AWS::Region
+              Namespace: SourceVariables
+              RunOrder: 1
+        - 
+          Name: Deploy
+          Actions:
+            - 
+              Name: Deploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ElasticBeanstalk
+                Version: 1
+              Configuration:
+                ApplicationName: !Ref nodeApp
+                EnvironmentName: !Ref nodeAppEnv
+              InputArtifacts:
+                - 
+                  Name: SourceArtifact
+              Region: !Ref AWS::Region
+              Namespace: DeployVariables
+              RunOrder: 1
