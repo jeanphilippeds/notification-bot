@@ -179,6 +179,8 @@ export const handleCarpoolButton = async (interaction) => {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" freed seat n°${seatIndex} on ride ${cacheKey}.`);
 	}
 
+	if (!seatToUpdate) return;
+
 	const updatedCarpoolObject = {
 		...storedCarpoolObject,
 		seats: {
