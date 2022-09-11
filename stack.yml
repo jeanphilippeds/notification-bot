@@ -10,9 +10,9 @@ Parameters:
   GithubRepository:
     Type: String
     Default: jeanphilippeds/notification-bot
-  BotTokenSecretPath:
+  BotTokenSecretName:
     Type: String
-    Default: discord/bot-token:SecretString:BOT_TOKEN
+    Default: discord/bot-token
 Resources:
   carpoolStateDatabase:
     Type: AWS::DynamoDB::Table
@@ -67,7 +67,7 @@ Resources:
             - 
               Namespace: aws:elasticbeanstalk:application:environment
               OptionName: BOT_TOKEN
-              Value: !Sub '{{resolve:secretsmanager:${BotTokenSecretPath}}}'
+              Value: !Sub '{{resolve:secretsmanager:${BotTokenSecretName}:SecretString:BOT_TOKEN}}'
             - 
               Namespace: aws:elasticbeanstalk:application:environment
               OptionName: CHANNEL_TOGGLE_ROLE_ID
