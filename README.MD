@@ -16,7 +16,7 @@ The code here will handle:
 ### 2. `Channel toggle` to allow users to opt-in only the channels they want to follow.
 
 The code here will handle:
-- The registration of 2 new commants `activer-suivi-sorties` and `desactiver-suivi-sorties`
+- The registration of 2 new commands `/activer-suivi-sorties` and `/desactiver-suivi-sorties`
 - The user interactions for `opt-in` and `opt-out`, i.e. to show/hide a certain channel.
 
 
@@ -32,7 +32,7 @@ Note2: To run the code locally, create an `.env` file at the root. Fill it follo
 
 ## Deployment
 
-The bot is currently deploy on AWS with `Cloudformation`. The corresponding template is in `stack.yml`
+The bot is currently deployed on AWS with `Cloudformation`. The corresponding template is in `stack.yml`
 
 To deploy it, you'll need the `aws-cli` and:
 - Go to AWS console and create a secret in SecretsManager to store the Discord Bot Token (see [Discord dev portal](https://discord.com/developers/applications))
