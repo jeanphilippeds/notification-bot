@@ -9,6 +9,7 @@ const TRY_AGAIN_REPLY = { content: 'Erreur! Merci de répéter la commande /covo
 const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
+const SEATS_INPUT_MODAL_ID = 'carpool-text-seats';
 
 const EDIT_MODAL_ID = 'button-carpool-edit';
 const DELETE_MODAL_ID = 'button-carpool-remove';
@@ -73,6 +74,12 @@ export const handleCarpoolCommand = async (interaction) => {
 		.setCustomId(cacheKey)
 		.setTitle('Nouvelle voiture');
 
+	const seatsInput = new TextInputBuilder()
+		.setCustomId(SEATS_INPUT_MODAL_ID)
+		.setLabel('Nombre de places disponibles')
+		.setValue(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption).toString())
+		.setStyle(TextInputStyle.Short);
+
 	const fromInput = new TextInputBuilder()
 		.setCustomId(FROM_INPUT_MODAL_ID)
 		.setLabel('Point de départ')
@@ -92,17 +99,17 @@ export const handleCarpoolCommand = async (interaction) => {
 		.setRequired(false)
 		.setStyle(TextInputStyle.Short);
 
-	const firstActionRow = new ActionRowBuilder().addComponents(fromInput);
-	const secondActionRow = new ActionRowBuilder().addComponents(timeInput);
-	const thirdActionRow = new ActionRowBuilder().addComponents(textInput);
-	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
+	const firstActionRow = new ActionRowBuilder().addComponents(seatsInput);
+	const secondActionRow = new ActionRowBuilder().addComponents(fromInput);
+	const thirdActionRow = new ActionRowBuilder().addComponents(timeInput);
+	const fourthActionRow = new ActionRowBuilder().addComponents(textInput);
+	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
 
 	const initialSeatsObject = [...Array(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption)).keys()]
 		.reduce((acc, i) => {
 			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
 		}, {});
 
-	await setStoredCarpool(cacheKey, { seats: initialSeatsObject });
 	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
@@ -124,15 +131,23 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	const fromInput = interaction.fields.getTextInputValue(FROM_INPUT_MODAL_ID);
 	const timeInput = interaction.fields.getTextInputValue(TIME_INPUT_MODAL_ID);
 	const textInput = interaction.fields.getTextInputValue(TEXT_INPUT_MODAL_ID);
+	const seatsInput = interaction.fields.getTextInputValue(SEATS_INPUT_MODAL_ID);
+
 	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
 	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
+
+	const initialSeatsObject = [...Array(Number(seatsInput)).keys()]
+		.reduce((acc, i) => {
+			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${customId}-${i}` } };
+		}, {});
 
 	await setStoredCarpool(customId, {
 		from: fromInput,
 		timeInput: timeInput,
 		textInput: textInput,
-		by: getMemberName(member),
-		seats: storedSeats,
+		ownerName: getMemberName(member),
+		ownerId: member.id,
+		seats: initialSeatsObject,
 	});
 
 	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
