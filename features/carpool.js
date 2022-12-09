@@ -10,6 +10,9 @@ const FROM_INPUT_MODAL_ID = 'carpool-from-input';
 const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 
+const EDIT_MODAL_ID = 'button-carpool-edit';
+const DELETE_MODAL_ID = 'button-carpool-remove';
+
 const ddb = new AWS.DynamoDB.DocumentClient({ region: getEnvKeyOrThrow('AWS_REGION') });
 
 const getStoredCarpool = async (cacheKey) => {
@@ -45,10 +48,16 @@ const getButtonsRowFromMap = map => [
 				.setStyle(isAvailable ? ButtonStyle.Primary : ButtonStyle.Secondary),
 			);
 		}),
-	new ActionRowBuilder().addComponents(new ButtonBuilder()
-		.setCustomId('button-carpool-remove')
-		.setLabel('Supprimer la voiture')
-		.setStyle(ButtonStyle.Danger)),
+	new ActionRowBuilder().addComponents(
+		new ButtonBuilder()
+			.setCustomId(EDIT_MODAL_ID)
+			.setLabel('Editer')
+			.setStyle(ButtonStyle.Success),
+		new ButtonBuilder()
+			.setCustomId(DELETE_MODAL_ID)
+			.setLabel('Annuler')
+			.setStyle(ButtonStyle.Danger),
+	),
 ];
 
 export const handleCarpoolCommand = async (interaction) => {
@@ -67,16 +76,19 @@ export const handleCarpoolCommand = async (interaction) => {
 	const fromInput = new TextInputBuilder()
 		.setCustomId(FROM_INPUT_MODAL_ID)
 		.setLabel('Point de départ')
+		.setPlaceholder('Botanic Seyssins')
 		.setStyle(TextInputStyle.Short);
 
 	const timeInput = new TextInputBuilder()
 		.setCustomId(TIME_INPUT_MODAL_ID)
 		.setLabel('Heure de départ')
+		.setPlaceholder('12h12')
 		.setStyle(TextInputStyle.Short);
 
 	const textInput = new TextInputBuilder()
 		.setCustomId(TEXT_INPUT_MODAL_ID)
 		.setLabel('Commentaire')
+		.setPlaceholder('J\'ai une 207 rose fuschia')
 		.setRequired(false)
 		.setStyle(TextInputStyle.Short);
 
@@ -135,7 +147,7 @@ export const handleCarpoolButton = async (interaction) => {
 
 	if (!customId || !customId.startsWith('button-carpool-')) return;
 
-	if (customId === 'button-carpool-remove') {
+	if (customId === DELETE_MODAL_ID) {
 		interaction.message.delete();
 		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
 		return;
