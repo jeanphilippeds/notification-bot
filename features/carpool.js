@@ -11,8 +11,8 @@ const TIME_INPUT_MODAL_ID = 'carpool-time-input';
 const TEXT_INPUT_MODAL_ID = 'carpool-text-input';
 const SEATS_INPUT_MODAL_ID = 'carpool-text-seats';
 
-const EDIT_MODAL_ID = 'button-carpool-edit';
-const DELETE_MODAL_ID = 'button-carpool-remove';
+const DELETE_SUFFIX = 'delete';
+const EDIT_SUFFIX = 'edit';
 
 const ddb = new AWS.DynamoDB.DocumentClient({ region: getEnvKeyOrThrow('AWS_REGION') });
 
@@ -40,7 +40,7 @@ const setStoredCarpool = async (cacheKey, carpoolObject) => {
 		.promise();
 };
 
-const getButtonsRowFromMap = map => [
+const getButtonsRowFromMap = (map, cacheKey) => [
 	...Object.entries(map)
 		.map(([, { isAvailable, passengerName, buttonKey }]) => {
 			return new ActionRowBuilder().addComponents(new ButtonBuilder()
@@ -51,11 +51,11 @@ const getButtonsRowFromMap = map => [
 		}),
 	new ActionRowBuilder().addComponents(
 		new ButtonBuilder()
-			.setCustomId(EDIT_MODAL_ID)
+			.setCustomId(`button-${cacheKey}-${EDIT_SUFFIX}`)
 			.setLabel('Editer')
 			.setStyle(ButtonStyle.Success),
 		new ButtonBuilder()
-			.setCustomId(DELETE_MODAL_ID)
+			.setCustomId(`button-${cacheKey}-${DELETE_SUFFIX}`)
 			.setLabel('Annuler')
 			.setStyle(ButtonStyle.Danger),
 	),
@@ -64,7 +64,7 @@ const getButtonsRowFromMap = map => [
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
-	const { commandName, id: interactionId, member } = interaction;
+	const { commandName, id: interactionId } = interaction;
 
 	if (COMMANDS.carpool.commandName !== commandName) return;
 
@@ -105,12 +105,6 @@ export const handleCarpoolCommand = async (interaction) => {
 	const fourthActionRow = new ActionRowBuilder().addComponents(textInput);
 	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
 
-	const initialSeatsObject = [...Array(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption)).keys()]
-		.reduce((acc, i) => {
-			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${cacheKey}-${i}` } };
-		}, {});
-
-	console.log(`[CARPOOL] User "${getMemberName(member)}" started ride ${cacheKey}.`);
 	await interaction.showModal(modal);
 };
 
@@ -119,14 +113,6 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 
 	if (!interaction.isModalSubmit()) return;
 	if (!customId || !customId.startsWith('carpool-')) return;
-
-	const { seats: storedSeats } = await getStoredCarpool(customId);
-
-	if (!storedSeats) {
-		console.log(`[CARPOOL] User "${getMemberName(member)}" answered modal on ${customId} but no corresponding entry found.`);
-		await interaction.reply(TRY_AGAIN_REPLY);
-		return;
-	}
 
 	const fromInput = interaction.fields.getTextInputValue(FROM_INPUT_MODAL_ID);
 	const timeInput = interaction.fields.getTextInputValue(TIME_INPUT_MODAL_ID);
@@ -153,7 +139,7 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
 	await interaction.reply({
 		content,
-		components: getButtonsRowFromMap(storedSeats),
+		components: getButtonsRowFromMap(initialSeatsObject, customId),
 	});
 };
 
@@ -161,12 +147,6 @@ export const handleCarpoolButton = async (interaction) => {
 	const { customId, member } = interaction;
 
 	if (!customId || !customId.startsWith('button-carpool-')) return;
-
-	if (customId === DELETE_MODAL_ID) {
-		interaction.message.delete();
-		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
-		return;
-	}
 
 	const match = customId.match(/^button-(carpool-\w*)-(\w*)$/);
 
@@ -176,12 +156,25 @@ export const handleCarpoolButton = async (interaction) => {
 	}
 
 	const cacheKey = match[1];
+	const buttonType = match[2];
 	const seatIndex = match[2];
 	const storedCarpoolObject = await getStoredCarpool(cacheKey);
+	const memberIsOwner = member.id === storedCarpoolObject.ownerId;
 
 	if (!storedCarpoolObject) {
 		console.log(`[CARPOOL] User "${getMemberName(member)}" clicked on ${customId} but no corresponding entry found.`);
 		await interaction.reply(TRY_AGAIN_REPLY);
+		return;
+	}
+
+	if (buttonType === DELETE_SUFFIX && memberIsOwner) {
+		interaction.message.delete();
+		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
+		return;
+	}
+
+	if ([DELETE_SUFFIX, EDIT_SUFFIX].includes(buttonType)) {
+		await interaction.deferUpdate();
 		return;
 	}
 
@@ -222,6 +215,6 @@ export const handleCarpoolButton = async (interaction) => {
 	await setStoredCarpool(cacheKey, updatedCarpoolObject);
 
 	await interaction.update({
-		components: getButtonsRowFromMap(updatedCarpoolObject.seats),
+		components: getButtonsRowFromMap(updatedCarpoolObject.seats, cacheKey),
 	});
 };
