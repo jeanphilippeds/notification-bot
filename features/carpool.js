@@ -61,6 +61,39 @@ const getButtonsRowFromMap = (map, cacheKey) => [
 	),
 ];
 
+const getModal = (cacheKey, values) => {
+	const modal = new ModalBuilder()
+		.setCustomId(cacheKey)
+		.setTitle('Nouvelle voiture');
+
+	const components = [];
+
+	[
+		{ id: SEATS_INPUT_MODAL_ID, label: 'Nombre de places disponibles', placeholder: '1' },
+		{ id: FROM_INPUT_MODAL_ID, label: 'Point de départ', placeholder: 'Botanic Seyssins' },
+		{ id: TIME_INPUT_MODAL_ID, label: 'Heure de départ', placeholder: '12h12' },
+		{ id: TEXT_INPUT_MODAL_ID, label: 'Commentaire', placeholder: 'J\'ai une 207 rose fuschia' },
+	].forEach(({ id, label, placeholder }) => {
+		const input = new TextInputBuilder()
+			.setCustomId(id)
+			.setLabel(label)
+			.setPlaceholder(placeholder)
+			.setStyle(TextInputStyle.Short);
+
+		values[id] && input.setValue(values[id]);
+
+		components.push(input);
+	});
+
+	const firstActionRow = new ActionRowBuilder().addComponents(components[0]);
+	const secondActionRow = new ActionRowBuilder().addComponents(components[1]);
+	const thirdActionRow = new ActionRowBuilder().addComponents(components[2]);
+	const fourthActionRow = new ActionRowBuilder().addComponents(components[3]);
+	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
+
+	return modal;
+};
+
 export const handleCarpoolCommand = async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
@@ -70,42 +103,10 @@ export const handleCarpoolCommand = async (interaction) => {
 
 	const cacheKey = `carpool-${interactionId}`;
 
-	const modal = new ModalBuilder()
-		.setCustomId(cacheKey)
-		.setTitle('Nouvelle voiture');
-
-	const seatsInput = new TextInputBuilder()
-		.setCustomId(SEATS_INPUT_MODAL_ID)
-		.setLabel('Nombre de places disponibles')
-		.setValue(interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption).toString())
-		.setStyle(TextInputStyle.Short);
-
-	const fromInput = new TextInputBuilder()
-		.setCustomId(FROM_INPUT_MODAL_ID)
-		.setLabel('Point de départ')
-		.setPlaceholder('Botanic Seyssins')
-		.setStyle(TextInputStyle.Short);
-
-	const timeInput = new TextInputBuilder()
-		.setCustomId(TIME_INPUT_MODAL_ID)
-		.setLabel('Heure de départ')
-		.setPlaceholder('12h12')
-		.setStyle(TextInputStyle.Short);
-
-	const textInput = new TextInputBuilder()
-		.setCustomId(TEXT_INPUT_MODAL_ID)
-		.setLabel('Commentaire')
-		.setPlaceholder('J\'ai une 207 rose fuschia')
-		.setRequired(false)
-		.setStyle(TextInputStyle.Short);
-
-	const firstActionRow = new ActionRowBuilder().addComponents(seatsInput);
-	const secondActionRow = new ActionRowBuilder().addComponents(fromInput);
-	const thirdActionRow = new ActionRowBuilder().addComponents(timeInput);
-	const fourthActionRow = new ActionRowBuilder().addComponents(textInput);
-	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
-
-	await interaction.showModal(modal);
+	await interaction.showModal(getModal(
+		cacheKey,
+		{ SEATS_INPUT_MODAL_ID: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption).toString() },
+	));
 };
 
 export const handleCarpoolModalSubmit = async (interaction) => {
