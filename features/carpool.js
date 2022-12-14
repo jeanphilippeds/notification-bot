@@ -105,7 +105,7 @@ export const handleCarpoolCommand = async (interaction) => {
 
 	await interaction.showModal(getModal(
 		cacheKey,
-		{ SEATS_INPUT_MODAL_ID: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption).toString() },
+		{ [SEATS_INPUT_MODAL_ID]: interaction.options.getInteger(COMMANDS.carpool.numberOfSeatsOption).toString() },
 	));
 };
 
@@ -171,6 +171,19 @@ export const handleCarpoolButton = async (interaction) => {
 	if (buttonType === DELETE_SUFFIX && memberIsOwner) {
 		interaction.message.delete();
 		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
+		return;
+	}
+
+	if (buttonType === EDIT_SUFFIX && memberIsOwner) {
+		await interaction.showModal(getModal(
+			cacheKey,
+			{
+				[FROM_INPUT_MODAL_ID]: storedCarpoolObject.from,
+				[TEXT_INPUT_MODAL_ID]: storedCarpoolObject.textInput,
+				[TIME_INPUT_MODAL_ID]: storedCarpoolObject.timeInput,
+				[SEATS_INPUT_MODAL_ID]: Object.keys(storedCarpoolObject.seats).length.toString(),
+			},
+		));
 		return;
 	}
 
