@@ -23,7 +23,11 @@ const getStoredCarpool = async (cacheKey) => {
 			Key: { cacheKey },
 		})
 		.promise()
-		.then(({ Item: { data } }) => data);
+		.then(({ Item: { data } }) => data)
+		.catch(() => {
+			console.log(`Could not find cacheKey: ${cacheKey}`);
+			return null;
+		});
 };
 
 const setStoredCarpool = async (cacheKey, carpoolObject) => {
@@ -66,7 +70,7 @@ const getModal = (cacheKey, values) => {
 		.setCustomId(cacheKey)
 		.setTitle('Nouvelle voiture');
 
-	const components = [];
+	const rows = [];
 
 	[
 		{ id: SEATS_INPUT_MODAL_ID, label: 'Nombre de places disponibles', placeholder: '1' },
@@ -82,14 +86,10 @@ const getModal = (cacheKey, values) => {
 
 		values[id] && input.setValue(values[id]);
 
-		components.push(input);
+		rows.push(new ActionRowBuilder().addComponents(input));
 	});
 
-	const firstActionRow = new ActionRowBuilder().addComponents(components[0]);
-	const secondActionRow = new ActionRowBuilder().addComponents(components[1]);
-	const thirdActionRow = new ActionRowBuilder().addComponents(components[2]);
-	const fourthActionRow = new ActionRowBuilder().addComponents(components[3]);
-	modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
+	modal.addComponents(...rows);
 
 	return modal;
 };
@@ -123,10 +123,21 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	const comment = textInput ? `\nCommentaire: ${textInput}.` : '';
 	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
 
-	const initialSeatsObject = [...Array(Number(seatsInput)).keys()]
-		.reduce((acc, i) => {
-			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${customId}-${i}` } };
-		}, {});
+	const storedCarpoolObject = await getStoredCarpool(customId);
+
+	let seats;
+
+	if (storedCarpoolObject) {
+		console.log('[CARPOOL] Fetched existing seats.');
+		seats = storedCarpoolObject.seats;
+	}
+	else {
+		console.log('[CARPOOL] Will create empty seats.');
+		seats = [...Array(Number(seatsInput)).keys()]
+			.reduce((acc, i) => {
+				return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${customId}-${i}` } };
+			}, {});
+	}
 
 	await setStoredCarpool(customId, {
 		from: fromInput,
@@ -134,13 +145,13 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 		textInput: textInput,
 		ownerName: getMemberName(member),
 		ownerId: member.id,
-		seats: initialSeatsObject,
+		seats,
 	});
 
-	console.log(`[CARPOOL] User "${getMemberName(member)}" created ride ${customId} from "${fromInput}", at "${timeInput}"`);
+	console.log(`[CARPOOL] User "${getMemberName(member)}" updated ride ${customId} from "${fromInput}", at "${timeInput}".`);
 	await interaction.reply({
 		content,
-		components: getButtonsRowFromMap(initialSeatsObject, customId),
+		components: getButtonsRowFromMap(seats, customId),
 	});
 };
 
@@ -170,7 +181,7 @@ export const handleCarpoolButton = async (interaction) => {
 
 	if (buttonType === DELETE_SUFFIX && memberIsOwner) {
 		interaction.message.delete();
-		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted carpool: ${interaction.message.content}`);
+		console.log(`[CARPOOL] User "${getMemberName(member)}" deleted ride: ${cacheKey}.`);
 		return;
 	}
 
@@ -188,6 +199,7 @@ export const handleCarpoolButton = async (interaction) => {
 	}
 
 	if ([DELETE_SUFFIX, EDIT_SUFFIX].includes(buttonType)) {
+		console.log(`[CARPOOL] User "${getMemberName(member)}" tried to edit/delete the ride ${cacheKey}`);
 		await interaction.deferUpdate();
 		return;
 	}
