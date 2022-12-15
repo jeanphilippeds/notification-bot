@@ -11,7 +11,7 @@ const client = new Client({
 	],
 });
 
-const useChannelToggleFeature = true;
+const useChannelToggleFeature = false;
 const useCarpoolFeature = true;
 
 if (useChannelToggleFeature) {
