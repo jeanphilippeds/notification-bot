@@ -124,20 +124,21 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	const content = `${getMemberName(member)} vient de proposer un trajet depuis: "${fromInput}". RDV à ${timeInput}.${comment}`;
 
 	const storedCarpoolObject = await getStoredCarpool(customId);
+	const isEditing = !!storedCarpoolObject;
+	const seatsNumber = Number(seatsInput);
 
-	let seats;
+	if (isNaN(seatsNumber) || seatsNumber > 4) {
+		throw new Error('Should enter a valid number');
+	}
 
-	if (storedCarpoolObject) {
-		console.log('[CARPOOL] Fetched existing seats.');
-		seats = storedCarpoolObject.seats;
-	}
-	else {
-		console.log('[CARPOOL] Will create empty seats.');
-		seats = [...Array(Number(seatsInput)).keys()]
-			.reduce((acc, i) => {
-				return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${customId}-${i}` } };
-			}, {});
-	}
+	const initialSeatsObject = [...Array(seatsNumber).keys()]
+		.reduce((acc, i) => {
+			return { ...acc, [i]: { isAvailable: true, buttonKey: `button-${customId}-${i}` } };
+		}, {});
+
+	const seats = isEditing
+		? (Object.keys(storedCarpoolObject.seats).length === seatsNumber) ? storedCarpoolObject.seats : initialSeatsObject
+		: initialSeatsObject;
 
 	await setStoredCarpool(customId, {
 		from: fromInput,
@@ -149,10 +150,13 @@ export const handleCarpoolModalSubmit = async (interaction) => {
 	});
 
 	console.log(`[CARPOOL] User "${getMemberName(member)}" updated ride ${customId} from "${fromInput}", at "${timeInput}".`);
-	await interaction.reply({
+
+	const interactionContent = {
 		content,
 		components: getButtonsRowFromMap(seats, customId),
-	});
+	};
+
+	await isEditing ? interaction.update(interactionContent) : interaction.reply(interactionContent);
 };
 
 export const handleCarpoolButton = async (interaction) => {
