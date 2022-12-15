@@ -73,7 +73,7 @@ const getModal = (cacheKey, values) => {
 	const rows = [];
 
 	[
-		{ id: SEATS_INPUT_MODAL_ID, label: 'Nombre de places disponibles', placeholder: '1' },
+		{ id: SEATS_INPUT_MODAL_ID, label: 'Nombre de places disponibles', placeholder: 'Nombre entre 1 et 4 (à cause d\'une limitation Discord)' },
 		{ id: FROM_INPUT_MODAL_ID, label: 'Point de départ', placeholder: 'Botanic Seyssins' },
 		{ id: TIME_INPUT_MODAL_ID, label: 'Heure de départ', placeholder: '12h12' },
 		{ id: TEXT_INPUT_MODAL_ID, label: 'Commentaire', placeholder: 'J\'ai une 207 rose fuschia' },
