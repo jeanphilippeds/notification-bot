@@ -40,3 +40,9 @@ To deploy it, you'll need the `aws-cli` and:
 - Run `aws cloudformation deploy --template-file stack.yml --stack-name discord-bot --capabilities CAPABILITY_IAM`. Use `--parameters` to override the default values.
 - Go to AWS console and activate Github connection in CodePipeline > Settings > Connections
 
+
+## Add the bot to a guild
+
+- Ask admin to go here: https://discord.com/api/oauth2/authorize?client_id=1002520014512984124&permissions=2048&scope=bot%20applications.commands
+- Update .env values
+- Register commands with `node commands/register-command.js`
